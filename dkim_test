@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+#
+#  Test an e-mail message for DKIM and report information
+
+import dkim
+import email
+import sys
+import argparse
+import logging
+import quopri
+from typing import Dict
+
+
+def parse_dkim_header(dkim_header: str) -> Dict:
+    dkim_header = ''.join([x.strip() for x in dkim_header.splitlines()])
+
+    # Split the string by semicolons
+    pairs = dkim_header.split(';')
+    
+    # Create a dictionary to store the key-value pairs
+    dkim_dict = {}
+
+    # Iterate over each pair
+    for pair in pairs:
+        # Split the pair by the equals sign
+        key_value = pair.split('=', 1)
+        
+        # Check if the split is valid (i.e., we have a key and a value)
+        if len(key_value) == 2:
+            # Strip whitespace and add to dictionary
+            key, value = key_value
+            dkim_dict[key.strip()] = value.strip()
+
+    return dkim_dict
+
+
+def decode_dkim_test(dkim_header: str):
+    for line in [quopri.decodestring(x).decode() for x in dkim_header.split('|')]:
+        yield [x.strip() for x in line.split(':', 1)]
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Process DNS record and email message file."
+    )
+
+    parser.add_argument(
+        "--dns-record",
+        type=str,
+        help="The text of the DNS TXT record for the zone we are looking up DKIM for "
+                "(default is to look it up in DNS).",
+    )
+    parser.add_argument(
+        "email_file",
+        type=argparse.FileType("rb"),
+        help="File containing an email message",
+    )
+
+    args = parser.parse_args()
+
+    # You can now use args.dns_record and args.email_file in your program
+    dns_record = args.dns_record
+
+    mail_text = args.email_file.read()
+    message = email.message_from_bytes(mail_text)
+
+    logger = logging.getLogger("debug")
+    logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)  # Ensure the handler captures all levels
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    verify_kwargs = {}
+    if args.dns_record:
+        class FakeDns:
+            def __init__(self, txt):
+                self.txt = txt
+            def dnsfunc(self, *_, **__):
+                return self.txt
+        verify_kwargs['dnsfunc'] = FakeDns(dns_record).dnsfunc
+
+    verify = dkim.verify(mail_text, logger=logger, **verify_kwargs)
+    print()
+    print(f"Verification results: {verify}")
+
+    dkim_header = parse_dkim_header(str(message.get('dkim-signature')))
+    if verify == False and 'z' in dkim_header:
+        for header, value in decode_dkim_test(dkim_header['z']):
+            if value != message.get(header):
+                print(f'DKIM signature header mismatch: {header}')
+                print(f'  Message: {message.get(header)}')
+                print(f'     DKIM: {value}')
+
+
+if __name__ == '__main__':
+    main()
