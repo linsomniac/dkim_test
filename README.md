@@ -7,7 +7,8 @@ that do not match the signature.
 
 ## Using
 
-You will need the "dkimpy" library: `pip install dkimpy`
+You will need the "[dkimpy](https://pypi.org/project/dkimpy/)" library: `pip install dkimpy`
+(NOTE: This is different from the similarly named "pydkim")
 
 Then just run `python3 dkim_test <EMAIL_FILE>`
 
