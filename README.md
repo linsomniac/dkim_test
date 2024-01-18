@@ -18,6 +18,12 @@ You can optionally include a DKIM DNS record, otherwise it will be looked up in 
 The DNS record can be looked up using: `host -t txt <SELECTOR>._domainkey.<DOMAIN>` but you must remove any
 double-quote/space/double-quote separators within it.
 
+## Getting DKIM Header Tests
+
+The OpenDKIM tool includes a "Diagnostics" setting, which when enabled will include a "z" tag in the
+DKIM signature.  This tool will use that information to display which header field is causing the
+signature failure.
+
 ## Example
 
 ```shell

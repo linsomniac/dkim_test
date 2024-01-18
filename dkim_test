@@ -8,6 +8,7 @@ import sys
 import argparse
 import logging
 import quopri
+import pprint
 from typing import Dict
 
 
@@ -64,6 +65,11 @@ def main():
     mail_text = args.email_file.read()
     message = email.message_from_bytes(mail_text)
 
+    dkim_header = parse_dkim_header(str(message.get('dkim-signature')))
+    print('DKIM Signature:')
+    pprint.pprint(dkim_header)
+    print()
+
     logger = logging.getLogger("debug")
     logger.setLevel(logging.DEBUG)
     handler = logging.StreamHandler(sys.stdout)
@@ -81,11 +87,11 @@ def main():
                 return self.txt
         verify_kwargs['dnsfunc'] = FakeDns(dns_record).dnsfunc
 
+    print('DKIM Verification Debug:')
     verify = dkim.verify(mail_text, logger=logger, **verify_kwargs)
     print()
     print(f"Verification results: {verify}")
 
-    dkim_header = parse_dkim_header(str(message.get('dkim-signature')))
     if verify == False and 'z' in dkim_header:
         for header, value in decode_dkim_test(dkim_header['z']):
             if value != message.get(header):
